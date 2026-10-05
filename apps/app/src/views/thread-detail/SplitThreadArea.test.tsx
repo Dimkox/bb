@@ -265,8 +265,8 @@ vi.mock("@/components/plugin/PluginPanelRightPanelHost", () => ({
   },
 }));
 
-vi.mock("./ThreadDetailView", () => ({
-  ThreadDetailView: ({
+vi.mock("./LazyThreadDetailView", () => ({
+  LazyThreadDetailView: ({
     projectId = "proj_personal",
     threadId = "thr-a",
     timelineEnabled = true,
@@ -935,7 +935,7 @@ describe("SplitThreadArea", () => {
     });
 
     expect(screen.queryByTestId("mock-collapsed-thread-rail")).toBeNull();
-    fireEvent.click(screen.getByTestId("maximize-thr-a"));
+    fireEvent.click(await screen.findByTestId("maximize-thr-a"));
 
     expect(screen.getByTestId("maximize-thr-a").textContent).toBe("restore");
     await waitFor(() => {
