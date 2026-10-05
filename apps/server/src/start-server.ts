@@ -36,7 +36,10 @@ import {
   type ProviderRegistryService,
 } from "./services/providers/provider-registry.js";
 import type { PluginService } from "./services/plugins/plugin-service.js";
-import { createTelemetryService } from "./services/system/telemetry.js";
+import {
+  appInstallFromServerConfig,
+  createTelemetryService,
+} from "./services/system/telemetry.js";
 import { TerminalSessionLifecycle } from "./services/terminals/terminal-session-lifecycle.js";
 import { createLifecycleDedupers } from "./lifecycle-dedupers.js";
 import type { ServerLogger, ServerRuntimeConfig } from "./types.js";
@@ -199,6 +202,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
 
   const telemetry = await createTelemetryService({
     apiKey: serverConfig.BB_POSTHOG_API_KEY,
+    appInstall: appInstallFromServerConfig(serverConfig),
     appSurface: serverConfig.BB_APP_SURFACE,
     appVersion: serverConfig.BB_APP_VERSION,
     dataDir: serverConfig.BB_DATA_DIR,
@@ -238,11 +242,17 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
   setPluginToolCallRegistry(new PluginToolCallRegistry({ logger }));
 
   const appVersion = createAppVersionService({
+    installKind: serverConfig.BB_APP_INSTALL_KIND ?? null,
+    sourceCommit: serverConfig.BB_APP_SOURCE_COMMIT ?? null,
     config: runtimeConfig,
     logger,
   });
   const appUpdateMode = serverConfig.BB_APP_UPDATE_MODE ?? null;
   const appUpdate = createAppUpdateService({
+    currentCommit:
+      serverConfig.BB_APP_INSTALL_KIND === "source"
+        ? (serverConfig.BB_APP_SOURCE_COMMIT ?? null)
+        : null,
     appSurface: serverConfig.BB_APP_SURFACE,
     appVersion,
     config: runtimeConfig,

@@ -163,7 +163,13 @@ In-app updates are off unless you start bb with `--in-app-updates`:
 `pnpm start --in-app-updates` from a source checkout. bb then runs under a small
 update shim, so Settings → Updates and `bb updates app apply` can update bb
 without a terminal. Without the flag, bb starts as before and Settings → Updates
-shows the upgrade command.
+shows the npm upgrade command for release installs. Source checkouts show their
+Git revision, or a labeled build version when unavailable, and are never compared
+with npm releases. Without the update shim, no freshness indicator is shown.
+Failed checks report “Latest unknown”; release checks can be retried in the UI,
+with `sdk.system.version({ force: true })`, or by rerunning `bb updates`.
+`GET /api/v1/system/version` and `sdk.system.version()` expose nullable
+`installKind` (`desktop`, `npm`, or `source`) and `currentCommit` fields.
 
 - **npm installs** download the new release into
   `<dataDir>/app-versions/<version>/` while bb keeps running, then restart into
@@ -202,8 +208,9 @@ app's own relaunch update) separately. `pnpm dev`, `bb-server`, and a standalone
 `bb-host-daemon` do not offer in-app updates. Updating restarts bb,
 which interrupts running threads; the app and CLI ask first.
 
-`BB_APP_UPDATE_MODE` is an internal marker the launcher passes to its server
-child; do not set it yourself.
+`BB_APP_UPDATE_MODE`, `BB_APP_INSTALL_KIND`, `BB_APP_SOURCE_ORIGIN`, and
+`BB_APP_SOURCE_COMMIT` are internal markers the launcher passes to its server
+child; do not set them yourself.
 
 ## Common Keys
 

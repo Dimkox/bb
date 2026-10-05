@@ -276,12 +276,15 @@ export async function createTestAppHarness(
   const appVersion =
     appVersionService ??
     createAppVersionService({
+      sourceCommit: null,
+      installKind: null,
       config,
       logger,
     });
   const appUpdate =
     appUpdateService ??
     createAppUpdateService({
+      currentCommit: null,
       appSurface: "web",
       appVersion,
       config,
