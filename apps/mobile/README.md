@@ -447,7 +447,6 @@ local token deletion does not require that server to be reachable. This does not
 delete the Firebase installation ID or previously processed provider data.
 iOS keeps its existing APNs registration behavior.
 
-
 - Registration: `PushNotificationsHost` (mounted once in `app/_layout.tsx`)
   registers the phone's Expo push token with each enabled server through
   Settings → This device → Notifications. It calls the `push-notifications`
@@ -714,3 +713,59 @@ Production AABs retain all architectures so Google Play can deliver
 device-specific packages. Keep EAS signing credentials unchanged so existing
 sideload installations can update. The smaller APK still undergoes browser
 security scanning; reduced size does not guarantee a fix for scanning hangs.
+
+## Android keyboard image paste
+
+The `react-native-webview` patch receives keyboard image content through
+AndroidX `InputConnectionCompat`. It is enabled only for WebViews with BB's
+injected mobile bridge. The bridge captures the focused prompt editor, then
+replays the image as a clipboard file through the existing web paste handler.
+The WebView serves a temporary, single-use URL from the keyboard's content
+stream. Image bytes stay binary instead of passing through base64 or a
+JavaScript string. Reads run off the UI thread, stop at the composer's 35 MB
+attachment limit, and must complete within 30 seconds. At most four transfers
+can be pending per WebView. Completion, timeout, navigation, and WebView
+destruction close the stream and release URI permissions. The bridge delivers
+the file only after the complete body and native success confirmation arrive;
+failed reads and removed or navigated editors discard the result. This requires
+an updated Android APK but works with the existing web composer without a
+server update.
+
+For a device smoke test:
+
+1. Copy a screenshot to the Android clipboard and focus a thread composer.
+2. Open Gboard's clipboard panel and tap the image. Check that its attachment
+   preview appears and finishes uploading.
+3. Paste ordinary clipboard text and check that it still appears in the editor.
+4. Paste a large image up to 35 MB and check that it completes without closing
+   the app. An image above the limit must not create an attachment.
+5. With a test content provider, delay one image read beyond 30 seconds, then
+   paste another image. The second image must arrive while the first expires.
+6. Navigate away during a delayed read and check that its result does not attach
+   to another composer.
+7. Remove the test attachments and text without sending a message.
+
+Bridge regression tests run with
+`pnpm exec turbo run test typecheck --filter=@bb/mobile-bridge`.
+
+## Android message image copy
+
+Android WebView can report a successful combined text/image clipboard write
+while retaining only the text. The message copy button therefore uses the
+Android shell's `copyTextAndImage` bridge method when available. It streams an
+image from the current server into the app cache, using the WebView session
+cookie, and publishes a URI through the existing WebView FileProvider. The
+provider offers message text as an alternate `text/plain` stream. Gboard sees
+an image, while Android text fields can retrieve the message text from the
+same clipboard item. Image-only messages omit the text stream.
+
+Downloads are limited to 35 MB, reject redirects, and expire after 25 seconds
+with 10-second network timeouts. Old clipboard cache files are removed on the
+next copy after 24 hours. Image copy failures fall back to text and explicitly
+report partial success. Both the APK and the served BB web app need this
+change; older peers retain their existing behavior.
+
+Verify by copying a user message containing text and an image, pasting through
+Gboard into a composer, and pasting into a native text field. Also check an
+image-only message, ordinary text copy, and an unavailable image. Remove test
+drafts without sending them.
