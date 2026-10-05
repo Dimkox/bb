@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   useQueryClient,
   type QueryObserverResult,
@@ -48,12 +48,19 @@ export interface UseThreadTimelineControllerResult {
   goal: ThreadTimelineResponse["goal"];
   modelFallback: ThreadTimelineResponse["modelFallback"];
   hasOlderTimelineRows: boolean;
+  isCatchingUpTimeline: boolean;
   isLoadingOlderTimelineRows: boolean;
   loadOlderTimelineRows: () => Promise<void>;
   pendingTodos: ThreadTimelineResponse["pendingTodos"];
   timelineError: Error | null;
   timelineLoading: boolean;
   timelineRows: TimelineRow[];
+}
+
+interface MountFetchState {
+  hasNewEvents: boolean;
+  key: string | null;
+  settled: boolean;
 }
 
 interface LoadedTimelineTracker {
@@ -110,7 +117,28 @@ export function useThreadTimelineController({
   threadId,
 }: UseThreadTimelineControllerArgs): UseThreadTimelineControllerResult {
   const queryClient = useQueryClient();
+  const mountFetchKey = enabled ? threadId : null;
+  const [mountFetch, setMountFetch] = useState<MountFetchState>({
+    hasNewEvents: false,
+    key: null,
+    settled: false,
+  });
+  const isNewMountFetch = mountFetch.key !== mountFetchKey;
+  const mountFetchHasNewEvents = isNewMountFetch
+    ? mountFetchKey !== null &&
+      queryClient.getQueryState(threadTimelineQueryKey(mountFetchKey))
+        ?.isInvalidated === true
+    : mountFetch.hasNewEvents;
+  const isTrackingMountFetch =
+    mountFetchKey !== null &&
+    mountFetchHasNewEvents &&
+    (isNewMountFetch || !mountFetch.settled);
+  const isTrackingMountFetchRef = useRef(isTrackingMountFetch);
+  isTrackingMountFetchRef.current = isTrackingMountFetch;
   const notifyOnChangeProps = useCallback((): TimelineQueryResultProp[] => {
+    if (isTrackingMountFetchRef.current) {
+      return TIMELINE_CONTROLLER_PROPS_WITHOUT_ROWS;
+    }
     const cachedTimeline = queryClient.getQueryData<ThreadTimelineResponse>(
       threadTimelineQueryKey(threadId),
     );
@@ -259,6 +287,19 @@ export function useThreadTimelineController({
     latestTimelineQuery.isLoading ||
     (timelineQueryState.status === "loading" && timelineRows.length === 0) ||
     (latestTimelineQuery.isFetching && timelineRows.length === 0);
+  const isMountFetchIdle =
+    mountFetchKey !== null && !latestTimelineQuery.isFetching;
+  if (isNewMountFetch || (isMountFetchIdle && !mountFetch.settled)) {
+    setMountFetch({
+      hasNewEvents: mountFetchHasNewEvents,
+      key: mountFetchKey,
+      settled: isMountFetchIdle,
+    });
+  }
+  const isCatchingUpTimeline =
+    isTrackingMountFetch &&
+    latestTimelineQuery.isFetching &&
+    timelineRows.length > 0;
   const timelineError =
     timelineLoading || timelineQueryState.status !== "unavailable"
       ? null
@@ -274,6 +315,7 @@ export function useThreadTimelineController({
     goal: latestTimeline?.goal ?? null,
     modelFallback: latestTimeline?.modelFallback ?? null,
     hasOlderTimelineRows,
+    isCatchingUpTimeline,
     isLoadingOlderTimelineRows,
     loadOlderTimelineRows,
     pendingTodos: latestTimeline?.pendingTodos ?? null,
