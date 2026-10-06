@@ -66,10 +66,12 @@ import { buildParentSelectorOptions } from "@/views/thread-detail/threadParentSe
 import { getThreadRoutePath } from "@/lib/route-paths";
 import { ThreadTitle } from "@/components/thread/ThreadTitleMentions";
 import {
+  describePullRequestStatus,
+  getPullRequestNextStep,
   getPullRequestStateDisplay,
-  getPullRequestAttentionDisplay,
-  getPullRequestGithubCheckStatus,
+  isPullRequestAutoMergeOn,
 } from "@/lib/pull-request-display";
+import { PullRequestNextStepLabel } from "@/components/pull-request/PullRequestNextStepLabel";
 import { PullRequestStateIcon } from "@/components/pull-request/PullRequestStatusPill";
 import { GithubFaviconIcon } from "@/components/pull-request/GithubFaviconIcon";
 import { useUrlAnchorClickHandler } from "@/lib/url-open-routing";
@@ -443,10 +445,7 @@ export function PullRequestRow({ pullRequest }: PullRequestRowProps) {
   const handlePullRequestClick = useUrlAnchorClickHandler(pullRequest?.url);
   if (!pullRequest) return null;
   const stateDisplay = getPullRequestStateDisplay(pullRequest);
-  const attentionDisplay = getPullRequestAttentionDisplay(pullRequest);
-  const checkStatus = getPullRequestGithubCheckStatus(pullRequest);
-  const statusDisplay =
-    attentionDisplay.label !== stateDisplay.label ? attentionDisplay : null;
+  const nextStep = getPullRequestNextStep(pullRequest);
   return (
     <DetailRow
       label={
@@ -456,31 +455,43 @@ export function PullRequestRow({ pullRequest }: PullRequestRowProps) {
       }
       valueClassName="min-w-0"
     >
-      <a
-        href={pullRequest.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={handlePullRequestClick}
-        aria-label={`Pull request ${pullRequest.number}: ${attentionDisplay.label}`}
-        className="flex h-5 max-w-full min-w-0 items-center gap-2 text-xs text-foreground no-underline transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      >
-        <GithubFaviconIcon status={checkStatus} />
-        <span className="shrink-0 text-muted-foreground">
-          #{pullRequest.number}
-        </span>
-        <span className="inline-flex h-5 shrink-0 items-center gap-1.5 rounded-full border border-border bg-background px-1.5 text-muted-foreground">
-          <PullRequestStateIcon
-            pullRequest={pullRequest}
-            className="size-3.5"
-          />
-          <span>{stateDisplay.label}</span>
-        </span>
-        {statusDisplay ? (
-          <span className={cn("min-w-0 truncate", statusDisplay.className)}>
-            {statusDisplay.label}
+      <span className="flex h-5 max-w-full min-w-0 items-center gap-2">
+        <a
+          href={pullRequest.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={handlePullRequestClick}
+          aria-label={`Pull request ${pullRequest.number}: ${describePullRequestStatus(pullRequest)}`}
+          className="flex min-w-0 items-center gap-2 text-xs text-foreground no-underline transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <GithubFaviconIcon />
+          <span className="shrink-0 text-muted-foreground">
+            #{pullRequest.number}
           </span>
+          <span className="inline-flex h-5 shrink-0 items-center gap-1.5 rounded-full border border-border bg-background px-1.5 text-muted-foreground">
+            <PullRequestStateIcon
+              pullRequest={pullRequest}
+              className="size-3.5"
+            />
+            <span>{stateDisplay.label}</span>
+          </span>
+          {nextStep ? <PullRequestNextStepLabel nextStep={nextStep} /> : null}
+        </a>
+        {isPullRequestAutoMergeOn(pullRequest) ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                role="img"
+                aria-label="Auto-merge on"
+                className="flex shrink-0 items-center text-subtle-foreground"
+              >
+                <Icon name="Zap" className="size-3" aria-hidden />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Auto-merge on</TooltipContent>
+          </Tooltip>
         ) : null}
-      </a>
+      </span>
     </DetailRow>
   );
 }
