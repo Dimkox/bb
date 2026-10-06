@@ -1,10 +1,4 @@
-import {
-  Fragment,
-  useId,
-  useState,
-  type ComponentProps,
-  type ReactNode,
-} from "react";
+import { Fragment, useId, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon, type IconName } from "@bb/shared-ui/icon";
 import {
@@ -104,6 +98,27 @@ function InfoSectionHeading({
   );
 }
 
+export function InfoSubheading({
+  label,
+  count,
+  trailing,
+}: {
+  label: string;
+  count: number;
+  trailing?: ReactNode;
+}) {
+  return (
+    <div className="mt-3 mb-1 flex h-5 min-w-0 items-center justify-between gap-3">
+      <span className="flex min-w-0 items-center gap-1 text-2xs text-subtle-foreground">
+        <span className="truncate">{label}</span>
+        <span aria-hidden="true">·</span>
+        <span className="tabular-nums">{count}</span>
+      </span>
+      {trailing}
+    </div>
+  );
+}
+
 export interface InfoSectionProps extends InfoSectionHeadingProps {
   children: ReactNode;
 }
@@ -116,27 +131,6 @@ export function InfoSection({ children, ...heading }: InfoSectionProps) {
       <InfoSectionHeading {...heading} bodyId={bodyId} />
       {collapsed ? null : <div id={bodyId}>{children}</div>}
     </section>
-  );
-}
-
-export function InfoMenuTrigger({
-  children,
-  className,
-  ...buttonProps
-}: ComponentProps<"button">) {
-  return (
-    <button
-      type="button"
-      {...buttonProps}
-      className={cn(
-        INFO_LIST_QUIET_CONTROL_CLASS,
-        "ml-1.5 inline-flex h-5 items-center gap-0.5 px-0.5 data-[state=open]:text-foreground",
-        className,
-      )}
-    >
-      {children}
-      <Icon name="ChevronDown" className={INFO_LIST_CARET_CLASS} aria-hidden />
-    </button>
   );
 }
 
@@ -352,7 +346,7 @@ export function InfoList<T>({
   const canToggle = infoListCollapses(items.length, limit);
   const visibleItems = canToggle && !isExpanded ? items.slice(0, limit) : items;
   return (
-    <ul className="relative m-0 list-none p-0">
+    <ul className="relative m-0 list-none p-0 max-md:pointer-coarse:[--text-xs--line-height:1.125rem] max-md:pointer-coarse:[--text-xs:0.8125rem]">
       {rail ? (
         <span
           className="pointer-events-none absolute top-3 bottom-3 left-[5.5px] w-px bg-border"

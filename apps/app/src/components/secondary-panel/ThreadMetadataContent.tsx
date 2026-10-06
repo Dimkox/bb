@@ -7,7 +7,7 @@ import {
   type ReactNode,
   type UIEvent,
 } from "react";
-import { ChangesSection } from "./info/ChangesSection";
+import { UncommittedChangesSection } from "./info/ChangesSection";
 import { CommitsSection } from "./info/CommitsSection";
 import { ForksSection } from "./info/RelatedThreadsSection";
 import {
@@ -388,7 +388,9 @@ export function WorkspacePathRow({ environment }: WorkspacePathRowProps) {
         successMessage="Directory copied"
         errorMessage="Failed to copy directory"
       >
-        {formatHomePathForDisplay(environment.path)}
+        <span className="text-muted-foreground">
+          {formatHomePathForDisplay(environment.path)}
+        </span>
       </CopyableInlineLabel>
     </DetailRow>
   );
@@ -530,6 +532,23 @@ interface MergeBaseRowProps {
   defaultOpen?: boolean;
 }
 
+export function formatBranchComparison({
+  aheadCount,
+  behindCount,
+  baseBranch,
+}: {
+  aheadCount: number;
+  behindCount: number;
+  baseBranch: string;
+}): string {
+  if (aheadCount > 0 && behindCount > 0) {
+    return `${aheadCount} ahead, ${behindCount} behind ${baseBranch}`;
+  }
+  if (aheadCount > 0) return `${aheadCount} ahead of ${baseBranch}`;
+  if (behindCount > 0) return `${behindCount} behind ${baseBranch}`;
+  return `Even with ${baseBranch}`;
+}
+
 export function MergeBaseRow({
   workspaceStatus,
   selectedMergeBaseBranch,
@@ -604,15 +623,11 @@ export function MergeBaseRow({
           defaultOpen={defaultOpen}
         />
       ) : (
-        mergeBaseBranch
+        <span className="min-w-0 truncate">{mergeBaseBranch}</span>
       )}
     </DetailRow>
   );
 }
-
-const DIRTY_GIT_STATUS_LABEL = "Uncommitted changes";
-
-const BRANCH_COMPARISON_SUMMARY_PATTERN = /^\d+ (ahead|behind)\b/;
 
 interface GitStatusRowProps {
   thread: Thread;
@@ -620,7 +635,6 @@ interface GitStatusRowProps {
   workspaceStatus: WorkspaceStatus | undefined;
   workspaceStatusError: Error | null;
   workspaceUnavailable?: WorkspaceResolutionFailure;
-  selectedMergeBaseBranch: string | undefined;
 }
 
 export function GitStatusRow({
@@ -629,7 +643,6 @@ export function GitStatusRow({
   workspaceStatus,
   workspaceStatusError,
   workspaceUnavailable,
-  selectedMergeBaseBranch,
 }: GitStatusRowProps) {
   if (
     !shouldShowWorkspaceStatus({
@@ -642,27 +655,32 @@ export function GitStatusRow({
   ) {
     return null;
   }
+  if (workspaceStatus) {
+    const mergeBase = workspaceStatus.mergeBase;
+    if (!mergeBase?.mergeBaseBranch) return null;
+    return (
+      <DetailRow
+        label={
+          <DetailRowIconLabel icon="FileDiff">Git status</DetailRowIconLabel>
+        }
+        valueClassName="min-w-0"
+      >
+        <span className="block min-w-0 truncate text-foreground">
+          {formatBranchComparison({
+            aheadCount: mergeBase.aheadCount,
+            behindCount: mergeBase.behindCount,
+            baseBranch: mergeBase.mergeBaseBranch,
+          })}
+        </span>
+      </DetailRow>
+    );
+  }
 
-  const isWorkspaceDeleted = environment?.status === "destroyed";
-  const effectiveMergeBaseBranch = resolveDisplayedMergeBaseBranch(
-    selectedMergeBaseBranch,
-    workspaceStatus,
-  );
-  const showBranchComparisonUi = Boolean(
-    effectiveMergeBaseBranch || workspaceStatus?.branch.defaultBranch,
-  );
-  const display = getGitStatusDisplay(workspaceStatus, {
-    mergeBaseBranch: effectiveMergeBaseBranch,
-    showBranchComparison: showBranchComparisonUi,
+  const display = getGitStatusDisplay(undefined, {
     error: workspaceStatusError,
     workspaceUnavailable,
-    workspaceDeleted: isWorkspaceDeleted,
+    workspaceDeleted: environment?.status === "destroyed",
   });
-  const summaryRepeatsLabel =
-    (display.label === "Ahead" || display.label === "Behind") &&
-    BRANCH_COMPARISON_SUMMARY_PATTERN.test(display.summary);
-  const isDirty = display.label === "Dirty";
-
   return (
     <DetailRow
       label={
@@ -671,36 +689,19 @@ export function GitStatusRow({
       align="start"
       valueClassName="min-w-0"
     >
-      <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
-        {isDirty ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                role="img"
-                aria-label={DIRTY_GIT_STATUS_LABEL}
-                className="flex shrink-0 items-center"
-              >
-                <Icon
-                  name="DiffModified"
-                  className="size-3 text-destructive"
-                  aria-hidden
-                />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>{DIRTY_GIT_STATUS_LABEL}</TooltipContent>
-          </Tooltip>
-        ) : summaryRepeatsLabel ? null : (
-          <span className="shrink-0 text-foreground">{display.label}</span>
-        )}
+      <span className="flex min-w-0 items-center gap-1.5">
+        <Icon
+          name="AlertTriangle"
+          className="size-3 shrink-0 text-warning"
+          aria-hidden
+        />
         <span
-          className="min-w-0 truncate text-muted-foreground"
+          className="min-w-0 truncate text-foreground"
           title={display.summary}
         >
-          {isDirty && display.summary === ""
-            ? DIRTY_GIT_STATUS_LABEL
-            : display.summary}
+          {display.summary.replace(/\.$/, "")}
         </span>
-      </div>
+      </span>
     </DetailRow>
   );
 }
@@ -944,7 +945,6 @@ export function ThreadMetadataContent(props: ThreadMetadataContentProps) {
                 workspaceStatus={workspaceStatus}
                 workspaceStatusError={workspaceStatusError}
                 workspaceUnavailable={workspaceUnavailable}
-                selectedMergeBaseBranch={selectedMergeBaseBranch}
               />
             </>
           ) : null}
@@ -957,8 +957,10 @@ export function ThreadMetadataContent(props: ThreadMetadataContentProps) {
             <CommitsSection
               workspaceStatus={workspaceStatus}
               onCommitClick={onCommitClick}
+              onChangedFileClick={onChangedFileClick}
+              onOpenChangedFile={onOpenChangedFile}
             />
-            <ChangesSection
+            <UncommittedChangesSection
               workspaceStatus={workspaceStatus}
               onChangedFileClick={onChangedFileClick}
               onOpenChangedFile={onOpenChangedFile}
