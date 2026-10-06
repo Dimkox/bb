@@ -11,7 +11,13 @@ export interface ContentLinkGroup {
 export const CONTENT_LINK_GROUPS: ContentLinkGroup[] = [
   {
     title: "Compare",
-    links: [{ label: "bb vs Superset", href: "/compare/superset-alternative" }],
+    links: [
+      { label: "bb vs Superset", href: "/compare/superset-alternative" },
+      {
+        label: "Vibe Kanban alternative",
+        href: "/compare/vibe-kanban-alternative",
+      },
+    ],
   },
 ];
 
