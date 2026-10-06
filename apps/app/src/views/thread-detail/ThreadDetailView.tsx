@@ -680,14 +680,11 @@ function ThreadDetailViewInternal(
     isSecondaryPanelOpen,
     secondaryTabs: fixedPanelTabsState.secondary.tabs,
   });
-  const {
-    isThreadStorageFilesLoading,
-    threadStorageFiles,
-    threadStorageFilesError,
-  } = useThreadStorageViewer({
-    fileListEnabled: shouldLoadThreadStorageFiles,
-    threadId,
-  });
+  const { threadStorageFiles, threadStorageFilesError } =
+    useThreadStorageViewer({
+      fileListEnabled: shouldLoadThreadStorageFiles,
+      threadId,
+    });
   const threadStorageLocationQuery = useThreadStorageLocation(threadId, {
     enabled: Boolean(thread?.environmentId),
   });
@@ -2178,11 +2175,9 @@ function ThreadDetailViewInternal(
         ? {
             controller: storageBrowserController,
             filesError: threadStorageFilesError,
-            isFilesLoading: isThreadStorageFilesLoading,
           }
         : undefined,
     [
-      isThreadStorageFilesLoading,
       resolvedThreadEnvironmentHost?.status,
       storageBrowserController,
       threadStorageFilesError,
@@ -2944,6 +2939,9 @@ function ThreadDetailViewInternal(
                 : undefined,
               onCommitClick: canUseGitUi
                 ? openSecondaryPanelCommitDiff
+                : undefined,
+              onOpenChangedFile: canUseGitUi
+                ? handleOpenFilePreview
                 : undefined,
             }}
             secondaryPanel={{
